@@ -29,6 +29,10 @@ public class ConfirmController {
     public void sendMessage(@PathVariable String message) {
         CorrelationData correlationData = new CorrelationData("1");
         log.info("发送确认消息：{}", message);
-        rabbitTemplate.convertAndSend(ConfirmConfig.CONFIRM_EXCHANGE, ConfirmConfig.CONFIRM_ROUTING_KEY + "6", message, correlationData);
+        rabbitTemplate.convertAndSend(ConfirmConfig.CONFIRM_EXCHANGE, ConfirmConfig.CONFIRM_ROUTING_KEY, message, correlationData);
+
+        CorrelationData correlationData2 = new CorrelationData("2");
+        log.info("发送确认消息：{}", message);
+        rabbitTemplate.convertAndSend(ConfirmConfig.CONFIRM_EXCHANGE, ConfirmConfig.CONFIRM_ROUTING_KEY + "6", message, correlationData2);
     }
 }

@@ -7,8 +7,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import javax.annotation.PostConstruct;
-
 /**
  * @author HuangBoo
  * @since 2023年05月04日 15:28
@@ -20,9 +18,22 @@ public class ConfirmConfig {
     public static final String CONFIRM_QUEUE = "confirm.queue";
     public static final String CONFIRM_ROUTING_KEY = "key1";
 
+    //备份交换机
+    public static final String BACKUP_EXCHANGE = "backup.exchange";
+    //备份队列
+    public static final String BACKUP_QUEUE = "backup.queue";
+    //报警队列
+    public static final String WARNING_QUEUE = "warning.queue";
+
     @Bean
-    public Exchange confirmExchange() {
-        return new DirectExchange(CONFIRM_EXCHANGE);
+    public DirectExchange confirmExchange() {
+        return ExchangeBuilder.directExchange(CONFIRM_EXCHANGE).durable(true)
+                .withArgument("alternate-exchange", BACKUP_EXCHANGE).build();
+    }
+
+    @Bean
+    public FanoutExchange backupExchange() {
+        return ExchangeBuilder.fanoutExchange(BACKUP_EXCHANGE).build();
     }
 
     @Bean
@@ -31,12 +42,34 @@ public class ConfirmConfig {
     }
 
     @Bean
-    public Binding confirmBinding(@Qualifier("confirmExchange") Exchange confirmExchange,
-                                  @Qualifier("confirmQueue") Queue confirmQueue) {
-        return BindingBuilder.bind(confirmQueue).to(confirmExchange).with(CONFIRM_ROUTING_KEY).noargs();
+    public Queue backupQueue() {
+        return QueueBuilder.durable(BACKUP_QUEUE).build();
     }
 
-//    @PostConstruct
+    @Bean
+    public Queue warningQueue() {
+        return QueueBuilder.durable(WARNING_QUEUE).build();
+    }
+
+    @Bean
+    public Binding backupBinding(@Qualifier("backupExchange") FanoutExchange backupExchange,
+                                 @Qualifier("backupQueue") Queue backupQueue) {
+        return BindingBuilder.bind(backupQueue).to(backupExchange);
+    }
+
+    @Bean
+    public Binding warningBinding(@Qualifier("backupExchange") FanoutExchange backupExchange,
+                                  @Qualifier("warningQueue") Queue warningQueue) {
+        return BindingBuilder.bind(warningQueue).to(backupExchange);
+    }
+
+    @Bean
+    public Binding confirmBinding(@Qualifier("confirmExchange") DirectExchange confirmExchange,
+                                  @Qualifier("confirmQueue") Queue confirmQueue) {
+        return BindingBuilder.bind(confirmQueue).to(confirmExchange).with(CONFIRM_ROUTING_KEY);
+    }
+
+    //    @PostConstruct
     public void build(RabbitTemplate rabbitTemplate) {
         rabbitTemplate.setConfirmCallback((correlationData, ack, cause) -> {
             String id = correlationData != null ? correlationData.getId() : "";
